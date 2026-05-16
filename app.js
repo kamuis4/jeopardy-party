@@ -774,9 +774,14 @@ document.getElementById('btn-back-home').addEventListener('click', () => {
 
 // ── Init ────────────────────────────────────────────────────
 
+// Tout en bas de ton app.js
 (async function init() {
   state.myUUID = getOrCreateUUID();
-  await loadPacks();
+  
+  // 1. On affiche l'écran d'accueil TOUT DE SUITE
+  showScreen('screen-home'); 
+  
+  // 2. On lance la connexion et le chargement en arrière-plan
   initSocket();
-  showScreen('screen-home');
+  await loadPacks();
 })();
