@@ -92,7 +92,10 @@ function myLives() {
 // ── Socket Setup ────────────────────────────────────────────
 
 function initSocket() {
-  state.socket = io(BACKEND_URL, { transports: ['websocket', 'polling'] });
+  // On utilise window.BACKEND_URL s'il existe, sinon la constante locale
+  const url = window.BACKEND_URL || BACKEND_URL;
+  
+  state.socket = io(url, { transports: ['websocket', 'polling'] });
 
   state.socket.on('connect', () => {
     console.log('[Socket] Connected:', state.socket.id);
@@ -773,7 +776,6 @@ document.getElementById('btn-back-home').addEventListener('click', () => {
   showScreen('screen-home');
 });
 
-// ── Init ────────────────────────────────────────────────────
 
 // ── Init ────────────────────────────────────────────────────
 
