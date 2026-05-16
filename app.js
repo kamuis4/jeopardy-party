@@ -113,23 +113,19 @@ function initSocket() {
           }
           showToast('Reconnexion réussie ✓', 'success');
         } else {
-          // Si la session est expirée ou invalide, on retourne à l'accueil
           localStorage.removeItem('jp_room');
           showScreen('screen-home');
         }
       });
     } else {
-      // FIX : Si aucune sauvegarde, on affiche l'accueil par défaut !
       showScreen('screen-home');
     }
   });
 
-  // Gérer aussi l'erreur de connexion
   state.socket.on('connect_error', () => {
     console.error('[Socket] Connection failed');
-    showScreen('screen-home'); // On montre l'accueil même si le serveur est KO (mode dégradé)
+    showScreen('screen-home');
   });
-}
 
   state.socket.on('disconnect', () => showToast('Connexion perdue… reconnexion…', 'error', 8000));
 
@@ -217,8 +213,7 @@ function initSocket() {
   });
 
   state.socket.on('error_msg', (msg) => showToast(`⚠ ${msg}`, 'error'));
-}
-
+} // <--- CETTE ACCOLADE FERME MAINTENANT BIEN TOUTE LA FONCTION
 // ── Home Screen ─────────────────────────────────────────────
 
 async function loadPacks() {
