@@ -6,4 +6,4 @@
 // In development  → http://localhost:3001
 // In production   → https://your-backend.onrender.com
 
-window.BACKEND_URL = 'http://localhost:3001';
+window.BACKEND_URL = 'https://jeopardy-party.onrender.com';
