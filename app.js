@@ -1,3 +1,11 @@
+(async function init() {
+    console.log("🛠️ Initialisation en cours..."); // Ajoute ça
+    state.myUUID = getOrCreateUUID();
+    showScreen('screen-home');
+    console.log("📺 Écran d'accueil forcé"); // Ajoute ça
+    initSocket();
+    await loadPacks();
+})();
 // ═══════════════════════════════════════════════════════════
 //  JEOPARDY PARTY — Frontend App (app.js)
 //  Vanilla JS SPA — Socket.io client
@@ -5,6 +13,7 @@
 
 const BACKEND_URL = 'https://jeopardy-party.onrender.com';
 const MAX_LIVES = 3;
+
 
 // ── State ──────────────────────────────────────────────────
 const state = {
@@ -791,4 +800,12 @@ document.getElementById('btn-back-home').addEventListener('click', () => {
   } catch (e) {
     console.warn("Packs non chargés, mais le jeu continue...");
   }
+})();
+(async function init() {
+    console.log("🛠️ Initialisation en cours..."); // Ajoute ça
+    state.myUUID = getOrCreateUUID();
+    showScreen('screen-home');
+    console.log("📺 Écran d'accueil forcé"); // Ajoute ça
+    initSocket();
+    await loadPacks();
 })();
