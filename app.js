@@ -95,8 +95,9 @@ function initSocket() {
 
   state.socket.on('connect', () => {
     console.log('[Socket] Connected:', state.socket.id);
-    // Attempt rejoin if we were in a room
+    
     const savedRoom = localStorage.getItem('jp_room');
+    
     if (savedRoom && state.myUUID) {
       state.socket.emit('rejoin', { playerUUID: state.myUUID, roomCode: savedRoom }, (res) => {
         if (res.success) {
@@ -111,10 +112,24 @@ function initSocket() {
             showScreen('screen-game');
           }
           showToast('Reconnexion réussie ✓', 'success');
+        } else {
+          // Si la session est expirée ou invalide, on retourne à l'accueil
+          localStorage.removeItem('jp_room');
+          showScreen('screen-home');
         }
       });
+    } else {
+      // FIX : Si aucune sauvegarde, on affiche l'accueil par défaut !
+      showScreen('screen-home');
     }
   });
+
+  // Gérer aussi l'erreur de connexion
+  state.socket.on('connect_error', () => {
+    console.error('[Socket] Connection failed');
+    showScreen('screen-home'); // On montre l'accueil même si le serveur est KO (mode dégradé)
+  });
+}
 
   state.socket.on('disconnect', () => showToast('Connexion perdue… reconnexion…', 'error', 8000));
 
