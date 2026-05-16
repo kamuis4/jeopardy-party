@@ -774,14 +774,21 @@ document.getElementById('btn-back-home').addEventListener('click', () => {
 
 // ── Init ────────────────────────────────────────────────────
 
-// Tout en bas de ton app.js
+// ── Init ────────────────────────────────────────────────────
+
 (async function init() {
+  // 1. On récupère l'identifiant
   state.myUUID = getOrCreateUUID();
   
-  // 1. On affiche l'écran d'accueil TOUT DE SUITE
+  // 2. ON FORCE L'AFFICHAGE IMMÉDIATEMENT ICI
   showScreen('screen-home'); 
   
-  // 2. On lance la connexion et le chargement en arrière-plan
+  // 3. On lance le reste sans bloquer l'affichage
   initSocket();
-  await loadPacks();
+  
+  try {
+    await loadPacks();
+  } catch (e) {
+    console.warn("Packs non chargés, mais le jeu continue...");
+  }
 })();
