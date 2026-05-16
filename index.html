@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JEOPARDY PARTY ⚡</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- ░░ SCANLINE OVERLAY ░░ -->
+  <div class="scanlines" aria-hidden="true"></div>
+  <div class="noise" aria-hidden="true"></div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!--  SCREEN 1 — HOME                               -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div id="screen-home" class="screen active">
+    <div class="home-bg-grid" aria-hidden="true"></div>
+    <div class="home-content">
+      <div class="logo-block">
+        <div class="logo-glitch" data-text="JEOPARDY">JEOPARDY</div>
+        <div class="logo-sub">PARTY EDITION</div>
+        <div class="logo-tagline">Soirée. Buzzer. Gloire.</div>
+      </div>
+
+      <div class="home-cards">
+        <!-- CREATE -->
+        <div class="home-card" id="card-create">
+          <div class="card-accent create-accent"></div>
+          <div class="card-icon">⚡</div>
+          <h2>Créer un Salon</h2>
+          <p>Lance une partie, invite tes amis via le code unique généré.</p>
+          <div class="input-group">
+            <input type="text" id="create-name" placeholder="Ton pseudo" maxlength="20" autocomplete="off" spellcheck="false" />
+          </div>
+          <button class="btn btn-primary" id="btn-create">
+            <span class="btn-text">CRÉER</span>
+            <span class="btn-glow"></span>
+          </button>
+        </div>
+
+        <!-- JOIN -->
+        <div class="home-card" id="card-join">
+          <div class="card-accent join-accent"></div>
+          <div class="card-icon">🎮</div>
+          <h2>Rejoindre un Salon</h2>
+          <p>Entre le code de la salle et ton pseudo pour rejoindre.</p>
+          <div class="input-group">
+            <input type="text" id="join-name" placeholder="Ton pseudo" maxlength="20" autocomplete="off" spellcheck="false" />
+            <input type="text" id="join-code" placeholder="Code (ex: XQZT5)" maxlength="6" autocomplete="off" spellcheck="false" style="text-transform:uppercase; font-family: 'Share Tech Mono', monospace; letter-spacing: 0.3em;" />
+          </div>
+          <button class="btn btn-secondary" id="btn-join">
+            <span class="btn-text">REJOINDRE</span>
+            <span class="btn-glow"></span>
+          </button>
+        </div>
+      </div>
+
+      <div id="home-error" class="error-banner" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!--  SCREEN 2 — LOBBY                              -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div id="screen-lobby" class="screen">
+    <div class="lobby-header">
+      <div class="lobby-logo">⚡ JEOPARDY PARTY</div>
+      <div class="room-code-display">
+        CODE : <span id="lobby-code">-----</span>
+        <button class="copy-btn" id="btn-copy-code" title="Copier">📋</button>
+      </div>
+    </div>
+
+    <div class="lobby-body">
+      <!-- Players -->
+      <section class="lobby-section">
+        <h3 class="section-title">JOUEURS CONNECTÉS <span id="player-count" class="count-badge">0</span></h3>
+        <div id="players-list" class="players-grid"></div>
+      </section>
+
+      <!-- Teams (hidden by default) -->
+      <section class="lobby-section" id="teams-section" style="display:none">
+        <h3 class="section-title">ÉQUIPES</h3>
+        <div id="teams-container" class="teams-grid"></div>
+      </section>
+
+      <!-- Config (creator only) -->
+      <section class="lobby-section" id="config-section">
+        <h3 class="section-title">⚙️ CONFIGURATION</h3>
+        <div class="config-grid">
+          <div class="config-item">
+            <label class="config-label">Pack de Questions</label>
+            <div id="pack-selector" class="pack-selector"></div>
+          </div>
+          <div class="config-item">
+            <label class="config-label">Mode Équipe</label>
+            <div class="toggle-row">
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggle-teams" />
+                <span class="toggle-slider"></span>
+              </label>
+              <span class="toggle-label" id="toggle-teams-label">Désactivé</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="lobby-footer">
+      <div id="lobby-error" class="error-banner" style="display:none"></div>
+      <button class="btn btn-primary btn-large" id="btn-start" style="display:none">
+        <span class="btn-text">⚡ LANCER LA PARTIE</span>
+        <span class="btn-glow"></span>
+      </button>
+      <div id="waiting-msg" class="waiting-msg">En attente du créateur…</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!--  SCREEN 3 — GAME (Jeopardy Grid)               -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div id="screen-game" class="screen">
+    <!-- Top HUD -->
+    <div class="game-hud">
+      <div class="hud-scores" id="hud-scores"></div>
+      <div class="hud-turn" id="hud-turn">
+        <span class="turn-label">TOUR DE</span>
+        <span class="turn-name" id="turn-player-name">---</span>
+      </div>
+    </div>
+
+    <!-- Jeopardy Grid -->
+    <div class="grid-wrapper">
+      <div id="jeopardy-grid" class="jeopardy-grid"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!--  SCREEN 4 — QUESTION MODAL                     -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div id="screen-question" class="screen question-overlay">
+    <div class="question-modal">
+      <!-- Header -->
+      <div class="question-header">
+        <span class="question-category" id="q-category">CATÉGORIE</span>
+        <span class="question-points" id="q-points">000</span>
+      </div>
+
+      <!-- Question Body -->
+      <div class="question-body">
+        <div id="q-media" class="q-media" style="display:none">
+          <img id="q-img" src="" alt="Question image" style="display:none" />
+          <div class="audio-player" id="q-audio-player" style="display:none">
+            <audio id="q-audio" preload="auto"></audio>
+            <button class="play-btn" id="btn-play-audio">▶ JOUER</button>
+            <div class="volume-row">
+              <span>🔊</span>
+              <input type="range" id="audio-volume" min="0" max="1" step="0.05" value="0.8" class="volume-slider" />
+            </div>
+          </div>
+        </div>
+        <p id="q-text" class="question-text">La question s'affiche ici…</p>
+      </div>
+
+      <!-- Answer reveal -->
+      <div id="answer-block" class="answer-block" style="display:none">
+        <div class="answer-label">✅ RÉPONSE</div>
+        <div id="answer-text" class="answer-text">---</div>
+        <div class="timer-row">
+          <div class="timer-bar-wrap">
+            <div id="timer-bar" class="timer-bar"></div>
+          </div>
+          <div id="timer-count" class="timer-count">15</div>
+        </div>
+      </div>
+
+      <!-- Steal banner (when someone buzzes) -->
+      <div id="steal-banner" class="steal-banner" style="display:none">
+        <div class="steal-icon">⚡</div>
+        <div class="steal-text">
+          <strong id="steal-name">???</strong> tente le VOL !
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="question-actions" id="question-actions">
+        <!-- Phase: answering (asked by me) -->
+        <div class="action-group" id="actions-reveal" style="display:none">
+          <button class="btn btn-primary" id="btn-reveal">
+            <span class="btn-text">👁 RÉVÉLER LA RÉPONSE</span>
+            <span class="btn-glow"></span>
+          </button>
+        </div>
+
+        <!-- Phase: revealed (asked by me — self-validate) -->
+        <div class="action-group" id="actions-validate" style="display:none">
+          <button class="btn btn-success" id="btn-correct">
+            <span class="btn-text">✅ J'AI JUSTE</span>
+            <span class="btn-glow"></span>
+          </button>
+        </div>
+
+        <!-- Phase: revealed (others — can buzz) -->
+        <div class="action-group" id="actions-buzz" style="display:none">
+          <button class="btn btn-danger btn-buzz" id="btn-buzz">
+            <span class="btn-text">⚡ BUZZER / VOLER</span>
+            <span class="btn-glow"></span>
+          </button>
+        </div>
+
+        <!-- Phase: stealing (stealer validates) -->
+        <div class="action-group" id="actions-steal-validate" style="display:none">
+          <button class="btn btn-success" id="btn-steal-correct">
+            <span class="btn-text">✅ VOL RÉUSSI</span>
+            <span class="btn-glow"></span>
+          </button>
+          <button class="btn btn-danger" id="btn-steal-wrong">
+            <span class="btn-text">❌ VOL RATÉ</span>
+            <span class="btn-glow"></span>
+          </button>
+        </div>
+
+        <!-- Observer message -->
+        <div class="action-group" id="actions-observer" style="display:none">
+          <p class="observer-msg">👀 Vous observez cette question…</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!--  SCREEN 5 — PODIUM / GAME OVER                 -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div id="screen-podium" class="screen">
+    <div class="podium-content">
+      <div class="podium-title">GAME OVER</div>
+      <div class="podium-subtitle">Les scores finaux</div>
+      <div id="podium-list" class="podium-list"></div>
+      <button class="btn btn-primary btn-large" id="btn-back-home">
+        <span class="btn-text">🏠 RETOUR À L'ACCUEIL</span>
+        <span class="btn-glow"></span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!--  GLOBAL TOASTS                                 -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!--  FIRST PLAYER PICKER OVERLAY                   -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div id="picker-overlay" class="picker-overlay" style="display:none">
+    <div class="picker-content">
+      <div class="picker-label">QUI COMMENCE ?</div>
+      <div id="picker-roulette" class="picker-roulette"></div>
+      <div id="picker-winner" class="picker-winner" style="display:none"></div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
