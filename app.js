@@ -3,7 +3,7 @@
 //  Vanilla JS SPA — Socket.io client
 // ═══════════════════════════════════════════════════════════
 
-const BACKEND_URL = window.BACKEND_URL || 'http://localhost:3001';
+const BACKEND_URL = 'https://jeopardy-party.onrender.com';
 const MAX_LIVES = 3;
 
 // ── State ──────────────────────────────────────────────────
