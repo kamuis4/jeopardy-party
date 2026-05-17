@@ -31,21 +31,26 @@ app.use(express.json());
 
 const gm = new GameManager();
 
-// ── Chargement des packs ────────────────────────────────────
+// ── Chargement des packs (MONGODB UNIQUEMENT) ────────────────
 async function loadPacksIntoCache() {
   try {
     const packs = await Pack.find({}).lean();
-    if (packs.length > 0) {
+    
+    if (packs && packs.length > 0) {
       gm.setPacksCache(packs);
+      console.log(`[Packs] ${packs.length} packs chargés avec succès depuis MongoDB.`);
       return packs.length;
+    } else {
+      // Si la collection est vide, on n'utilise pas le fallback
+      console.error('[Packs] ERREUR : La base de données MongoDB est vide.');
+      gm.setPacksCache([]); // On initialise à vide pour éviter les crashs
+      return 0;
     }
-    console.warn('[Packs] DB vide — fallback sur packs.js');
-    gm.setPacksCache(FALLBACK_PACKS);
-    return 0;
-  } catch {
-    console.warn('[Packs] Erreur lecture DB — fallback sur packs.js');
-    gm.setPacksCache(FALLBACK_PACKS);
-    return 0;
+  } catch (error) {
+    // Si la connexion échoue
+    console.error('[Packs] ERREUR CRITIQUE : Impossible de lire MongoDB.', error);
+    gm.setPacksCache([]); 
+    throw error; // On propage l'erreur car la DB est obligatoire
   }
 }
 
