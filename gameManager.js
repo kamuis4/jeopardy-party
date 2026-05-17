@@ -8,6 +8,7 @@ const PACKS = require('./packs');
 
 const MAX_LIVES = 3;
 const STEAL_TIMER_MS = 15000;
+const GRACE_PERIOD_MS = 5000; // délai avant que le buzz s'ouvre
 
 class GameManager {
   constructor() {
@@ -270,8 +271,10 @@ class GameManager {
     room.activeQuestion = {
       key: questionKey,
       askedBy: playerUUID,
+      originalAsker: playerUUID, // ne change jamais, même lors d'un vol
       phase: 'answering',  // answering | revealed | stealing
       timerEndsAt: null,
+      graceEndsAt: null,
       stealer: null,
     };
 
@@ -288,12 +291,14 @@ class GameManager {
     const cell = room.grid[room.activeQuestion.key];
     room.activeQuestion.phase = 'revealed';
     room.activeQuestion.timerEndsAt = Date.now() + STEAL_TIMER_MS;
+    room.activeQuestion.graceEndsAt = Date.now() + GRACE_PERIOD_MS;
     room.revealedAnswer = cell.answer;
 
     return {
       success: true,
-      answer: cell.answer,
+      answer: cell.answer,              // envoyé seulement au demandeur
       timerEnd: room.activeQuestion.timerEndsAt,
+      graceEnd: room.activeQuestion.graceEndsAt,
       questionKey: room.activeQuestion.key,
       gameState: this._buildGameState(room),
     };
@@ -309,10 +314,11 @@ class GameManager {
     if (Date.now() < room.activeQuestion.timerEndsAt) return null;
 
     const nextPlayer = this._getNextRandomPlayer(room);
+    const answer = room.grid[questionKey]?.answer || room.revealedAnswer;
     this._closeQuestion(room, questionKey, false);
     room.currentTurn = nextPlayer;
 
-    return { closed: true, nextPlayer, gameState: this._buildGameState(room) };
+    return { closed: true, nextPlayer, answer, gameState: this._buildGameState(room) };
   }
 
   claimCorrect(roomCode, playerUUID) {
@@ -326,7 +332,9 @@ class GameManager {
 
     this._addPoints(room, playerUUID, points);
     this._clearTimer(roomCode);
-    this._closeQuestion(room, room.activeQuestion.key, true);
+    const key = room.activeQuestion.key;
+    const answer = room.grid[key]?.answer || room.revealedAnswer;
+    this._closeQuestion(room, key, true);
     room.currentTurn = playerUUID;
 
     const player = room.players[playerUUID];
@@ -336,6 +344,7 @@ class GameManager {
       points,
       newScore: player.score,
       nextPlayer: playerUUID,
+      answer, // pour diffusion à tous
       gameState: this._buildGameState(room),
     };
   }
@@ -344,17 +353,25 @@ class GameManager {
     const room = this.rooms[roomCode];
     if (!room || !room.activeQuestion) return { success: false };
     if (room.activeQuestion.phase !== 'revealed') return { success: false };
-    if (room.activeQuestion.askedBy === playerUUID) return { success: false, error: 'Tu ne peux pas voler ta propre question.' };
+
+    // Bloquer l'auto-vol (utilise originalAsker, pas askedBy qui change)
+    if (room.activeQuestion.originalAsker === playerUUID) {
+      return { success: false, error: 'Tu ne peux pas voler ta propre question.' };
+    }
+
+    // Bloquer si la période de grâce n'est pas écoulée
+    if (room.activeQuestion.graceEndsAt && Date.now() < room.activeQuestion.graceEndsAt) {
+      return { success: false, error: 'Attends la fin du délai de validation.' };
+    }
 
     const stealer = room.players[playerUUID];
     if (!stealer || stealer.lives <= 0) return { success: false, error: 'Plus de vies.' };
 
-    const victim = room.players[room.activeQuestion.askedBy];
+    const victim = room.players[room.activeQuestion.originalAsker];
 
     room.activeQuestion.phase = 'stealing';
     room.activeQuestion.stealer = playerUUID;
-    // The "askedBy" now becomes the stealer for claim_correct purposes
-    room.activeQuestion.askedBy = playerUUID;
+    room.activeQuestion.askedBy = playerUUID; // pour claim_correct
 
     return {
       success: true,
@@ -362,6 +379,19 @@ class GameManager {
       victim: { uuid: victim?.uuid, name: victim?.name },
       gameState: this._buildGameState(room),
     };
+  }
+
+  // Le joueur admet s'être trompé → ouvre le buzz immédiatement
+  claimWrong(roomCode, playerUUID) {
+    const room = this.rooms[roomCode];
+    if (!room || !room.activeQuestion) return { success: false };
+    if (room.activeQuestion.originalAsker !== playerUUID) return { success: false };
+    if (room.activeQuestion.phase !== 'revealed') return { success: false };
+
+    // Expire la période de grâce immédiatement
+    room.activeQuestion.graceEndsAt = Date.now() - 1;
+
+    return { success: true, gameState: this._buildGameState(room) };
   }
 
   stealCorrect(roomCode, playerUUID) {
@@ -387,10 +417,13 @@ class GameManager {
     let gameOver = false;
     let nextPlayer = null;
 
+    let finalAnswer = null;
     if (allDead || Date.now() >= room.activeQuestion.timerEndsAt) {
       gameOver = true;
       nextPlayer = this._getNextRandomPlayer(room, playerUUID);
-      this._closeQuestion(room, room.activeQuestion.key, false);
+      const key = room.activeQuestion.key;
+      finalAnswer = room.grid[key]?.answer || room.revealedAnswer;
+      this._closeQuestion(room, key, false);
       room.currentTurn = nextPlayer;
     }
 
@@ -400,6 +433,7 @@ class GameManager {
       livesLeft: player.lives,
       gameOver,
       nextPlayer,
+      answer: finalAnswer,
       gameState: this._buildGameState(room),
     };
   }
@@ -425,6 +459,9 @@ class GameManager {
   }
 
   _closeQuestion(room, questionKey, completed) {
+    // Mémorise la réponse avant de l'effacer (pour la diffuser à la fermeture)
+    const finalAnswer = room.grid[questionKey]?.answer || room.revealedAnswer;
+
     if (room.grid[questionKey]) {
       room.grid[questionKey].completed = completed;
       room.grid[questionKey].locked = false;
@@ -435,6 +472,8 @@ class GameManager {
     // Check if game is over (all cells completed)
     const allDone = Object.values(room.grid).every(c => c.completed);
     if (allDone) room.status = 'finished';
+
+    return finalAnswer; // retourné pour diffusion
   }
 
   _buildGameState(room) {

@@ -27,17 +27,14 @@ app.use(express.json());
 
 const gm = new GameManager();
 
-// ── REST Endpoints ─────────────────────────────────────────
-
+// ── REST ────────────────────────────────────────────────────
 app.get('/', (_, res) => res.json({ status: 'ok', game: 'Jeopardy Party 🎮' }));
 app.get('/api/packs', (_, res) => res.json(gm.getAvailablePacks()));
 
 // ── Socket.io ──────────────────────────────────────────────
-
 io.on('connection', (socket) => {
   console.log(`[CONNECT] ${socket.id}`);
 
-  // Helper: emit to room
   const toRoom = (roomCode, event, data) => io.to(roomCode).emit(event, data);
 
   // ── CREATE ROOM ──────────────────────────────────────
@@ -49,7 +46,6 @@ io.on('connection', (socket) => {
       cb?.({ success: true, uuid, roomCode, room });
       console.log(`[ROOM CREATE] ${roomCode} by "${playerName}"`);
     } catch (e) {
-      console.error('[create_room]', e);
       cb?.({ success: false, error: e.message });
     }
   });
@@ -69,7 +65,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // ── REJOIN (after disconnect/refresh) ───────────────
+  // ── REJOIN ───────────────────────────────────────────
   socket.on('rejoin', ({ playerUUID, roomCode }, cb) => {
     try {
       const result = gm.rejoinRoom(playerUUID, roomCode, socket.id);
@@ -111,36 +107,55 @@ io.on('connection', (socket) => {
   // ── SELECT QUESTION ───────────────────────────────────
   socket.on('select_question', ({ roomCode, questionKey, playerUUID }) => {
     const r = gm.selectQuestion(roomCode, questionKey, playerUUID);
-    if (!r.success) {
-      socket.emit('error_msg', r.error || 'Action impossible.');
-      return;
-    }
+    if (!r.success) { socket.emit('error_msg', r.error || 'Action impossible.'); return; }
     toRoom(roomCode, 'question_opened', r.question);
     toRoom(roomCode, 'game_state_update', r.gameState);
   });
 
   // ── REVEAL ANSWER ─────────────────────────────────────
+  // La réponse est envoyée UNIQUEMENT au demandeur (socket privé)
+  // Les autres ne voient que le timer + la période de grâce
   socket.on('reveal_answer', ({ roomCode, playerUUID }) => {
     const r = gm.revealAnswer(roomCode, playerUUID);
     if (!r.success) { socket.emit('error_msg', r.error || 'Action impossible.'); return; }
 
-    toRoom(roomCode, 'answer_revealed', {
+    // Privé → demandeur seulement
+    socket.emit('answer_revealed', {
       answer: r.answer,
       timerEnd: r.timerEnd,
+      graceEnd: r.graceEnd,
+      isAsker: true,
     });
+
+    // Public → tous les autres (sans la réponse)
+    socket.to(roomCode).emit('answer_revealed', {
+      answer: null,
+      timerEnd: r.timerEnd,
+      graceEnd: r.graceEnd,
+      isAsker: false,
+    });
+
     toRoom(roomCode, 'game_state_update', r.gameState);
 
-    // Auto-close after timer expires
+    // Auto-close après expiration
     const key = r.questionKey;
     gm.timers = gm.timers || {};
     if (gm.timers[roomCode]) clearTimeout(gm.timers[roomCode]);
     gm.timers[roomCode] = setTimeout(() => {
       const cr = gm.autoCloseQuestion(roomCode, key);
       if (cr && cr.closed) {
-        toRoom(roomCode, 'question_timeout', { nextPlayer: cr.nextPlayer });
+        toRoom(roomCode, 'question_timeout', { nextPlayer: cr.nextPlayer, answer: cr.answer });
         toRoom(roomCode, 'game_state_update', cr.gameState);
       }
-    }, 15500); // 500ms buffer
+    }, 15500);
+  });
+
+  // ── CLAIM WRONG (demandeur admet s'être trompé) ───────
+  socket.on('claim_wrong', ({ roomCode, playerUUID }) => {
+    const r = gm.claimWrong(roomCode, playerUUID);
+    if (!r.success) return;
+    toRoom(roomCode, 'grace_ended', {});
+    toRoom(roomCode, 'game_state_update', r.gameState);
   });
 
   // ── CLAIM CORRECT ─────────────────────────────────────
@@ -148,7 +163,7 @@ io.on('connection', (socket) => {
     const r = gm.claimCorrect(roomCode, playerUUID);
     if (!r.success) { socket.emit('error_msg', 'Action impossible.'); return; }
     toRoom(roomCode, 'points_awarded', { player: r.player, points: r.points, newScore: r.newScore });
-    toRoom(roomCode, 'question_closed', { nextPlayer: r.nextPlayer, reason: 'correct' });
+    toRoom(roomCode, 'question_closed', { nextPlayer: r.nextPlayer, reason: 'correct', answer: r.answer });
     toRoom(roomCode, 'game_state_update', r.gameState);
   });
 
@@ -165,7 +180,7 @@ io.on('connection', (socket) => {
     const r = gm.stealCorrect(roomCode, playerUUID);
     if (!r.success) { socket.emit('error_msg', 'Action impossible.'); return; }
     toRoom(roomCode, 'points_awarded', { player: r.player, points: r.points, newScore: r.newScore });
-    toRoom(roomCode, 'question_closed', { nextPlayer: r.nextPlayer, reason: 'steal_correct' });
+    toRoom(roomCode, 'question_closed', { nextPlayer: r.nextPlayer, reason: 'steal_correct', answer: r.answer });
     toRoom(roomCode, 'game_state_update', r.gameState);
   });
 
@@ -176,7 +191,7 @@ io.on('connection', (socket) => {
     toRoom(roomCode, 'life_lost', { player: r.player, livesLeft: r.livesLeft });
     toRoom(roomCode, 'game_state_update', r.gameState);
     if (r.gameOver) {
-      toRoom(roomCode, 'question_timeout', { nextPlayer: r.nextPlayer });
+      toRoom(roomCode, 'question_timeout', { nextPlayer: r.nextPlayer, answer: r.answer });
     }
   });
 
@@ -188,15 +203,12 @@ io.on('connection', (socket) => {
   // ── DISCONNECT ────────────────────────────────────────
   socket.on('disconnect', () => {
     const result = gm.handleDisconnect(socket.id);
-    if (result?.roomCode) {
-      toRoom(result.roomCode, 'room_update', result.room);
-    }
+    if (result?.roomCode) toRoom(result.roomCode, 'room_update', result.room);
     console.log(`[DISCONNECT] ${socket.id}`);
   });
 });
 
 // ── Start ─────────────────────────────────────────────────
-
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`\n🎮 Jeopardy Party Server running on http://localhost:${PORT}`);

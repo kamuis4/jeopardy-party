@@ -203,6 +203,23 @@
             <span class="btn-text">✅ J'AI JUSTE</span>
             <span class="btn-glow"></span>
           </button>
+          <button class="btn btn-danger" id="btn-wrong">
+            <span class="btn-text">❌ J'AI FAUX</span>
+            <span class="btn-glow"></span>
+          </button>
+        </div>
+
+        <!-- Phase: grace period (non-askers waiting) -->
+        <div class="action-group" id="actions-grace" style="display:none">
+          <div class="grace-block">
+            <div class="grace-msg">⏳ Le joueur valide sa réponse… buzz disponible dans</div>
+            <div class="grace-timer-row">
+              <div class="grace-bar-wrap">
+                <div id="grace-bar" class="grace-bar"></div>
+              </div>
+              <div id="grace-count" class="grace-count">5</div>
+            </div>
+          </div>
         </div>
 
         <!-- Phase: revealed (others — can buzz) -->
@@ -264,8 +281,8 @@
     </div>
   </div>
 
-  <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
   <script src="config.js"></script>
+  <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

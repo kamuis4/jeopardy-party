@@ -13,9 +13,11 @@ const state = {
   myName: null,
   roomCode: null,
   gameState: null,
-  currentQuestion: null,  // { key, category, points, question, type, mediaUrl }
+  currentQuestion: null,
   timerInterval: null,
   timerEnd: null,
+  graceEnd: null,       // timestamp fin de période de grâce
+  graceTimeout: null,   // handle pour auto-ouvrir le buzz
   availablePacks: [],
 };
 
@@ -164,10 +166,35 @@ function initSocket() {
     openQuestionModal(question);
   });
 
-  state.socket.on('answer_revealed', ({ answer, timerEnd }) => {
-    showAnswerBlock(answer, timerEnd);
+  state.socket.on('answer_revealed', ({ answer, timerEnd, graceEnd, isAsker }) => {
+    state.timerEnd = timerEnd;
+    state.graceEnd = graceEnd;
+
+    if (isAsker) {
+      // Je suis le demandeur : je vois la réponse tout de suite
+      showAnswerBlock(answer, timerEnd);
+    } else {
+      // Je suis un autre joueur : je vois le compte à rebours de grâce
+      showGracePeriod(graceEnd);
+      // Quand la grâce expire → ouvrir le buzz automatiquement
+      const delay = Math.max(0, graceEnd - Date.now());
+      state.graceTimeout = setTimeout(() => {
+        state.graceEnd = null;
+        updateQuestionActions(state.gameState);
+      }, delay);
+    }
     updateQuestionActions(state.gameState);
     startTimerUI(timerEnd);
+  });
+
+  // Le demandeur a dit "j'ai faux" → grâce terminée pour tous
+  state.socket.on('grace_ended', () => {
+    state.graceEnd = null;
+    if (state.graceTimeout) { clearTimeout(state.graceTimeout); state.graceTimeout = null; }
+    // Masquer le bloc de grâce et afficher le buzz
+    const graceBlock = document.getElementById('actions-grace');
+    if (graceBlock) graceBlock.style.display = 'none';
+    updateQuestionActions(state.gameState);
   });
 
   state.socket.on('steal_attempt', ({ stealer, victim }) => {
@@ -185,20 +212,23 @@ function initSocket() {
     shakeLifeUI(player.uuid);
   });
 
-  state.socket.on('question_closed', ({ nextPlayer, reason }) => {
-    closeQuestionModal();
+  state.socket.on('question_closed', ({ nextPlayer, reason, answer }) => {
     stopTimerUI();
-    if (nextPlayer) {
-      const name = playerName(nextPlayer);
-      showToast(`🎯 C'est au tour de ${name}`, 'info', 3000);
-    }
+    if (answer) revealAnswerToAll(answer);
+    setTimeout(() => {
+      closeQuestionModal();
+      if (nextPlayer) showToast(`🎯 Au tour de ${playerName(nextPlayer)}`, 'info', 3000);
+    }, answer ? 2000 : 0);
   });
 
-  state.socket.on('question_timeout', ({ nextPlayer }) => {
+  state.socket.on('question_timeout', ({ nextPlayer, answer }) => {
     showToast('⏰ Temps écoulé ! Personne ne marque.', 'error', 3500);
-    closeQuestionModal();
     stopTimerUI();
-    if (nextPlayer) showToast(`🎯 Au tour de ${playerName(nextPlayer)}`, 'info', 3000);
+    if (answer) revealAnswerToAll(answer);
+    setTimeout(() => {
+      closeQuestionModal();
+      if (nextPlayer) showToast(`🎯 Au tour de ${playerName(nextPlayer)}`, 'info', 3000);
+    }, answer ? 2000 : 0);
   });
 
   state.socket.on('sync_audio', ({ audioUrl, timestamp }) => {
@@ -612,48 +642,91 @@ function showStealBanner(stealerName) {
 
 function updateQuestionActions(gameState) {
   if (!gameState?.activeQuestion) return;
-  const { phase, askedBy, stealer } = gameState.activeQuestion;
+  const { phase, askedBy, stealer, originalAsker } = gameState.activeQuestion;
 
-  // Hide all
-  ['actions-reveal', 'actions-validate', 'actions-buzz', 'actions-steal-validate', 'actions-observer'].forEach(id => {
-    document.getElementById(id).style.display = 'none';
+  // Masquer tout
+  ['actions-reveal', 'actions-validate', 'actions-buzz', 'actions-grace', 'actions-steal-validate', 'actions-observer'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
   });
 
   const myLivesLeft = myLives();
+  const iAmOriginalAsker = originalAsker === state.myUUID;
+  const graceActive = state.graceEnd && Date.now() < state.graceEnd;
 
   if (phase === 'answering') {
-    // Only the asker can reveal
-    if (askedBy === state.myUUID) {
+    if (iAmOriginalAsker) {
       document.getElementById('actions-reveal').style.display = 'flex';
     } else {
       document.getElementById('actions-observer').style.display = 'flex';
     }
+
   } else if (phase === 'revealed') {
-    if (askedBy === state.myUUID) {
-      // Asker can claim correct
+    if (iAmOriginalAsker) {
+      // Le demandeur : peut dire "j'ai juste" ou "j'ai faux"
       document.getElementById('actions-validate').style.display = 'flex';
-      if (myLivesLeft > 0) {
-        document.getElementById('actions-buzz').style.display = 'flex';
-      }
     } else {
-      // Others can buzz
-      if (myLivesLeft > 0) {
+      // Autres joueurs : grâce en cours ou buzz ouvert
+      if (graceActive) {
+        document.getElementById('actions-grace').style.display = 'flex';
+      } else if (myLivesLeft > 0) {
         document.getElementById('actions-buzz').style.display = 'flex';
       } else {
         document.getElementById('actions-observer').style.display = 'flex';
       }
     }
+
   } else if (phase === 'stealing') {
-    if (stealer === state.myUUID || askedBy === state.myUUID) {
-      // The stealer validates
+    if (askedBy === state.myUUID) {
+      // Le voleur actuel valide
       document.getElementById('actions-steal-validate').style.display = 'flex';
+    } else if (!iAmOriginalAsker && myLivesLeft > 0 && !graceActive) {
+      // Autres peuvent encore buzzer si le timer le permet
+      document.getElementById('actions-buzz').style.display = 'flex';
     } else {
       document.getElementById('actions-observer').style.display = 'flex';
     }
   }
 }
 
+function showGracePeriod(graceEnd) {
+  const graceEl = document.getElementById('actions-grace');
+  if (!graceEl) return;
+  graceEl.style.display = 'flex';
+
+  const countEl = document.getElementById('grace-count');
+  const barEl = document.getElementById('grace-bar');
+  const total = graceEnd - Date.now();
+
+  function tick() {
+    const remaining = Math.max(0, graceEnd - Date.now());
+    const pct = (remaining / total) * 100;
+    if (barEl) barEl.style.width = pct + '%';
+    if (countEl) countEl.textContent = Math.ceil(remaining / 1000);
+    if (remaining > 0) requestAnimationFrame(tick);
+  }
+  tick();
+}
+
+function revealAnswerToAll(answer) {
+  // Affiche la réponse pour ceux qui ne la voyaient pas
+  const answerBlock = document.getElementById('answer-block');
+  const answerText = document.getElementById('answer-text');
+  const answerLabel = document.querySelector('.answer-label');
+  if (answerText) answerText.textContent = answer;
+  if (answerLabel) answerLabel.textContent = '🔓 RÉPONSE RÉVÉLÉE';
+  if (answerBlock) answerBlock.style.display = 'block';
+
+  // Masquer le bloc de grâce
+  const graceBlock = document.getElementById('actions-grace');
+  if (graceBlock) graceBlock.style.display = 'none';
+}
+
 function closeQuestionModal() {
+  // Reset grace state
+  state.graceEnd = null;
+  if (state.graceTimeout) { clearTimeout(state.graceTimeout); state.graceTimeout = null; }
+
   // Pause audio
   const audioEl = document.getElementById('q-audio');
   if (audioEl) { audioEl.pause(); audioEl.currentTime = 0; }
@@ -711,6 +784,10 @@ document.getElementById('btn-reveal').addEventListener('click', () => {
 
 document.getElementById('btn-correct').addEventListener('click', () => {
   state.socket.emit('claim_correct', { roomCode: state.roomCode, playerUUID: state.myUUID });
+});
+
+document.getElementById('btn-wrong').addEventListener('click', () => {
+  state.socket.emit('claim_wrong', { roomCode: state.roomCode, playerUUID: state.myUUID });
 });
 
 document.getElementById('btn-buzz').addEventListener('click', () => {

@@ -780,6 +780,37 @@ input[type="text"]::placeholder { color: var(--text-muted); }
   to   { transform: none; opacity: 1; }
 }
 
+/* Grace period block */
+.grace-block {
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  width: 100%; padding: 16px 0;
+}
+.grace-msg {
+  font-family: var(--font-mono); font-size: 0.85rem;
+  color: var(--text-dim); text-align: center;
+}
+.grace-timer-row {
+  display: flex; align-items: center; gap: 12px; width: 100%; max-width: 360px;
+}
+.grace-bar-wrap {
+  flex: 1; height: 6px; background: var(--surface2);
+  border-radius: 99px; overflow: hidden;
+}
+.grace-bar {
+  height: 100%; width: 100%;
+  background: linear-gradient(90deg, var(--purple), var(--cyan));
+  border-radius: 99px; transition: width 0.2s linear;
+}
+.grace-count {
+  font-family: var(--font-mono); font-size: 1.1rem;
+  color: var(--purple); min-width: 24px; text-align: right;
+  text-shadow: 0 0 8px var(--purple-glow);
+}
+
+/* Actions side by side */
+#actions-validate.action-group { gap: 12px; }
+#actions-validate .btn { flex: 1; }
+
 /* ── Life shake animation ────────────────────────────────── */
 @keyframes heartShake {
   0%,100% { transform: none; }
