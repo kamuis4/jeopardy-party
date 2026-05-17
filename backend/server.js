@@ -212,21 +212,32 @@ io.on('connection', (socket) => {
   });
 });
 
+// ... (haut du fichier inchangé)
+
 // ── Boot ───────────────────────────────────────────────────
 async function boot() {
+  console.log("[Boot] Connexion à la base de données...");
   const dbOk = await connectDB();
+
   if (dbOk) {
-    await loadPacksIntoCache();
+    console.log("[Boot] Connexion DB réussie, chargement des packs...");
+    const count = await loadPacksIntoCache();
+    
+    if (count === 0) {
+      console.warn("[Boot] ATTENTION : Aucun pack trouvé dans la collection MongoDB.");
+    } else {
+      console.log(`[Boot] Succès : ${count} packs prêts.`);
+    }
   } else {
+    console.error("[Boot] ERREUR : Impossible de se connecter à MongoDB.");
+    // Ici, le cache reste [] car FALLBACK_PACKS est vide.
     gm.setPacksCache(FALLBACK_PACKS);
   }
 
   const PORT = process.env.PORT || 3001;
   server.listen(PORT, () => {
-    console.log(`\n🎮 Jeopardy Party — http://localhost:${PORT}`);
-    console.log(`   DB       : ${dbOk ? 'MongoDB Atlas ✅' : 'Fallback local ⚠️'}`);
-    console.log(`   Packs    : ${gm.packsCache.length} chargé(s)`);
-    console.log(`   Frontend : ${FRONTEND_URL}\n`);
+    console.log(`[Server] Lancé sur le port ${PORT}`);
+    console.log(`[Env] URL Frontend autorisée : ${FRONTEND_URL}`);
   });
 }
 
