@@ -4,7 +4,6 @@
 // ─────────────────────────────────────────────────────────────
 
 const { v4: uuidv4 } = require('uuid');
-const PACKS = require('./packs');
 
 const MAX_LIVES = 3;
 const STEAL_TIMER_MS = 15000;
@@ -12,12 +11,16 @@ const GRACE_PERIOD_MS = 5000; // délai avant que le buzz s'ouvre
 
 class GameManager {
   constructor() {
-    // roomCode -> Room
-    this.rooms = {};
-    // socketId -> { playerUUID, roomCode }
-    this.socketMap = {};
-    // Active timers: roomCode -> timeoutHandle
-    this.timers = {};
+    this.rooms      = {};   // roomCode -> Room
+    this.socketMap  = {};   // socketId -> { playerUUID, roomCode }
+    this.timers     = {};   // roomCode -> timeoutHandle
+    this.packsCache = [];   // chargé depuis MongoDB (ou packs.js en fallback)
+  }
+
+  // Appelé depuis server.js après connexion DB (ou au démarrage en fallback)
+  setPacksCache(packs) {
+    this.packsCache = packs;
+    console.log(`[GameManager] ${packs.length} pack(s) chargé(s) en cache`);
   }
 
   // ── Helpers ──────────────────────────────────────────────
@@ -85,7 +88,7 @@ class GameManager {
       players: { [playerUUID]: player },
       teams: {},
       teamsEnabled: false,
-      selectedPackId: PACKS[0].id,
+      selectedPackId: null, // sera défini dès que le lobby charge les packs
       currentTurn: null,
       activeQuestion: null,
       grid: {},
@@ -156,7 +159,7 @@ class GameManager {
   selectPack(roomCode, packId, playerUUID) {
     const room = this.rooms[roomCode];
     if (!room || room.creatorUUID !== playerUUID) return { success: false };
-    if (!PACKS.find(p => p.id === packId)) return { success: false, error: 'Pack introuvable.' };
+    if (!this.packsCache.find(p => p.id === packId)) return { success: false, error: 'Pack introuvable.' };
 
     room.selectedPackId = packId;
     return { success: true, room: this._sanitizeRoom(room) };
@@ -206,7 +209,7 @@ class GameManager {
     if (room.creatorUUID !== playerUUID) return { success: false, error: 'Seul le créateur peut lancer la partie.' };
     if (Object.keys(room.players).length < 2) return { success: false, error: 'Il faut au moins 2 joueurs.' };
 
-    const pack = PACKS.find(p => p.id === room.selectedPackId);
+    const pack = this.packsCache.find(p => p.id === room.selectedPackId);
     if (!pack) return { success: false, error: 'Pack introuvable.' };
 
     // Build grid
@@ -497,13 +500,13 @@ class GameManager {
   // ── Public Getters ────────────────────────────────────────
 
   getAvailablePacks() {
-    return PACKS.map(p => ({
+    return this.packsCache.map(p => ({
       id: p.id,
       name: p.name,
       description: p.description,
-      emoji: p.emoji,
-      categoryCount: p.categories.length,
-      questionCount: p.categories.reduce((acc, c) => acc + c.questions.length, 0),
+      emoji: p.emoji || '🎮',
+      categoryCount: p.categories?.length || 0,
+      questionCount: p.categories?.reduce((acc, c) => acc + (c.questions?.length || 0), 0) || 0,
     }));
   }
 }
