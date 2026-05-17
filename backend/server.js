@@ -12,7 +12,7 @@ const { v4: uuidv4 } = require('uuid');
 
 const { connectDB }  = require('./db');
 const Pack           = require('./models/Pack');
-const FALLBACK_PACKS = require('./packs');
+const FALLBACK_PACKS = [];
 const GameManager    = require('./gameManager');
 
 const app    = express();
