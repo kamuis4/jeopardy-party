@@ -190,6 +190,16 @@ io.on('connection', (socket) => {
     socket.to(roomCode).emit('sync_audio', { audioUrl, timestamp: timestamp || Date.now() });
   });
 
+  // ── LEAVE ROOM (volontaire) ───────────────────────────────
+  socket.on('leave_room', ({ roomCode, playerUUID }) => {
+    const room = gm.rooms[roomCode];
+    if (!room || !room.players[playerUUID]) return;
+    room.players[playerUUID].connected = false;
+    socket.leave(roomCode);
+    toRoom(roomCode, 'room_update', gm.sanitizeRoom(room));
+    console.log(`[LEAVE] ${playerUUID} a quitté ${roomCode}`);
+  });
+
   socket.on('disconnect', () => {
     const result = gm.handleDisconnect(socket.id);
     if (result?.roomCode) toRoom(result.roomCode, 'room_update', result.room);

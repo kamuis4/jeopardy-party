@@ -850,6 +850,31 @@ document.getElementById('btn-back-home').addEventListener('click', () => {
   showScreen('screen-home');
 });
 
+// ── Quit / Leave Room ───────────────────────────────────────
+
+function leaveRoom() {
+  if (state.roomCode) {
+    state.socket.emit('leave_room', { roomCode: state.roomCode, playerUUID: state.myUUID });
+  }
+  // Reset local state
+  localStorage.removeItem('jp_room');
+  state.roomCode    = null;
+  state.gameState   = null;
+  state.currentQuestion = null;
+  state.graceEnd    = null;
+  if (state.graceTimeout) { clearTimeout(state.graceTimeout); state.graceTimeout = null; }
+  stopTimerUI();
+  showScreen('screen-home');
+}
+
+document.getElementById('btn-quit-lobby')?.addEventListener('click', () => {
+  if (confirm('Quitter le salon ?')) leaveRoom();
+});
+
+document.getElementById('btn-quit-game')?.addEventListener('click', () => {
+  if (confirm('Quitter la partie en cours ?')) leaveRoom();
+});
+
 // ── Init ────────────────────────────────────────────────────
 
 (async function init() {

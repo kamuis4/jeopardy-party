@@ -23,6 +23,8 @@ class GameManager {
     console.log(`[GameManager] ${packs.length} pack(s) chargé(s) en cache`);
   }
 
+  sanitizeRoom(room) { return this._sanitizeRoom(room); }
+
   // ── Helpers ──────────────────────────────────────────────
 
   _generateRoomCode() {
