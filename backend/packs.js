@@ -400,7 +400,9 @@ const PACKS = [
           { level: 5, points: 500, question: 'Quel objet est lié à Maromi ?', answer: 'Une peluche rose', type: 'text', mediaUrl: null },
         ]
       },
-      {
+    ]
+  },
+  {
     id: 'manga',
     name: 'Manga',
     description: 'L\'univers des cases et des bulles, du Shonen au Seinen.',
@@ -687,9 +689,7 @@ const PACKS = [
           { level: 4, points: 400, question: 'Comment s\'appelle le mode de jeu roguelike créé par Herta ?', answer: 'L\'Univers Simulé', type: 'text', mediaUrl: null },
           { level: 5, points: 500, question: 'Combien de types d\'éléments différents existent dans le jeu (Physique, Feu, Glace, etc.) ?', answer: '7 (Physique, Feu, Glace, Foudre, Vent, Quantique, Imaginaire)', type: 'text', mediaUrl: null },
         ]
-      }
-    ]
-  },
+      },
       {
         name: 'Serial Experiments Lain',
         questions: [
