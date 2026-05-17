@@ -54,7 +54,7 @@ app.get('/', (_, res) => res.json({ status: 'ok', game: 'Jeopardy Party 🎮' })
 app.get('/api/packs', (_, res) => res.json(gm.getAvailablePacks()));
 
 // Recharge les packs depuis MongoDB sans redémarrer (utile après ajout dans Atlas)
-app.post('/api/packs/reload', async (_, res) => {
+app.get('/api/packs/reload', async (_, res) => {
   const count = await loadPacksIntoCache();
   res.json({ success: true, source: count > 0 ? 'mongodb' : 'fallback', count: gm.packsCache.length });
 });
