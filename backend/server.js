@@ -9,6 +9,7 @@ const http       = require('http');
 const { Server } = require('socket.io');
 const cors       = require('cors');
 const { v4: uuidv4 } = require('uuid');
+const mongoose = require('mongoose'); // <── AJOUTE CETTE LIGNE TOUT EN HAUT
 
 const { connectDB }  = require('./db');
 const Pack           = require('./models/Pack');
