@@ -3,9 +3,8 @@
 //  Vanilla JS SPA — Socket.io client
 // ═══════════════════════════════════════════════════════════
 
-const BACKEND_URL = 'https://jeopardy-party.onrender.com';
+const BACKEND_URL = window.BACKEND_URL || 'http://localhost:3001';
 const MAX_LIVES = 3;
-
 
 // ── State ──────────────────────────────────────────────────
 const state = {
@@ -92,19 +91,24 @@ function myLives() {
 // ── Socket Setup ────────────────────────────────────────────
 
 function initSocket() {
-  // On utilise window.BACKEND_URL s'il existe, sinon la constante locale
-  const url = window.BACKEND_URL || BACKEND_URL;
-  
-  state.socket = io(url, { transports: ['websocket', 'polling'] });
+  if (state.socket) return; // garde contre double init
+
+  state.socket = io(BACKEND_URL, {
+    transports: ['websocket'],
+    reconnectionAttempts: 5,
+  });
+
+  let hasJoinedOnce = false;
 
   state.socket.on('connect', () => {
     console.log('[Socket] Connected:', state.socket.id);
-    
+    if (hasJoinedOnce) return;
+    hasJoinedOnce = true;
+
     const savedRoom = localStorage.getItem('jp_room');
-    
     if (savedRoom && state.myUUID) {
       state.socket.emit('rejoin', { playerUUID: state.myUUID, roomCode: savedRoom }, (res) => {
-        if (res.success) {
+        if (res?.success) {
           state.roomCode = savedRoom;
           state.gameState = res.room;
           const status = res.room.status;
@@ -118,17 +122,9 @@ function initSocket() {
           showToast('Reconnexion réussie ✓', 'success');
         } else {
           localStorage.removeItem('jp_room');
-          showScreen('screen-home');
         }
       });
-    } else {
-      showScreen('screen-home');
     }
-  });
-
-  state.socket.on('connect_error', () => {
-    console.error('[Socket] Connection failed');
-    showScreen('screen-home');
   });
 
   state.socket.on('disconnect', () => showToast('Connexion perdue… reconnexion…', 'error', 8000));
@@ -217,7 +213,8 @@ function initSocket() {
   });
 
   state.socket.on('error_msg', (msg) => showToast(`⚠ ${msg}`, 'error'));
-} // <--- CETTE ACCOLADE FERME MAINTENANT BIEN TOUTE LA FONCTION
+}
+
 // ── Home Screen ─────────────────────────────────────────────
 
 async function loadPacks() {
@@ -776,14 +773,11 @@ document.getElementById('btn-back-home').addEventListener('click', () => {
   showScreen('screen-home');
 });
 
-
 // ── Init ────────────────────────────────────────────────────
 
 (async function init() {
-    console.log("🛠️ Initialisation en cours..."); // Ajoute ça
-    state.myUUID = getOrCreateUUID();
-    showScreen('screen-home');
-    console.log("📺 Écran d'accueil forcé"); // Ajoute ça
-    initSocket();
-    await loadPacks();
+  state.myUUID = getOrCreateUUID();
+  await loadPacks();
+  initSocket();
+  showScreen('screen-home');
 })();

@@ -443,7 +443,6 @@ input[type="text"]::placeholder { color: var(--text-muted); }
    ════════════════════════════════════════════════════════ */
 #screen-game {
   background: var(--bg);
-  display: flex; flex-direction: column;
 }
 
 .game-hud {
