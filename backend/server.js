@@ -34,6 +34,9 @@ const gm = new GameManager();
 // ── Chargement des packs (MONGODB UNIQUEMENT) ────────────────
 async function loadPacksIntoCache() {
   try {
+    console.log("[Debug] Base connectée :", mongoose.connection.name);
+    console.log("[Debug] Collection ciblée :", Pack.collection.name);
+    const packs = await Pack.find({}).lean();
     const packs = await Pack.find({}).lean();
     
     if (packs && packs.length > 0) {
