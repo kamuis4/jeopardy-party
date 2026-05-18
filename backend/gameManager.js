@@ -320,7 +320,7 @@ class GameManager {
 
     const nextPlayer = this._getNextRandomPlayer(room);
     const answer = room.grid[questionKey]?.answer || room.revealedAnswer;
-    this._closeQuestion(room, questionKey, false);
+    this._closeQuestion(room, questionKey, true);
     room.currentTurn = nextPlayer;
 
     return { closed: true, nextPlayer, answer, gameState: this._buildGameState(room) };
@@ -428,7 +428,7 @@ class GameManager {
       nextPlayer = this._getNextRandomPlayer(room, playerUUID);
       const key = room.activeQuestion.key;
       finalAnswer = room.grid[key]?.answer || room.revealedAnswer;
-      this._closeQuestion(room, key, false);
+      this._closeQuestion(room, key, true);
       room.currentTurn = nextPlayer;
     }
 
